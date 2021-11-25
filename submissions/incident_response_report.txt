@@ -1,0 +1,6 @@
+. Incident commander name: Felicia Ebikon
+. Executive Summary of what happened: There are three new pods running. Monero crypto-mining containers, specifically minergate, moneropool, and xmrpooldotnet
+. Summary of what was affected: The Cluster CPU usage increased. It could have stopped other pods from running if not remediated on time.
+. Summmary of the impact: The attacker managed to run crypto miners. Crypto-mining consumes a lot of CPU. So, CPU utilization jumped.
+. Summary of the remediation steps: The administrator noticed the event through Grafana monitoring and evicted the pods. This command: kubectl --kubeconfig kube_config_cluster.yml delete pod <pod_name> --grace-period=0 --force> was used to evict the pods
+. Summary of lessons learned: We should review access to the Kubernetes API server from administrative terminals and the Grafana dashboards. Admission controllers can also be configured to disallow unknown images to be used to create containers.
