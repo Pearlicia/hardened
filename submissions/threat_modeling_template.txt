@@ -1,18 +1,93 @@
-Docker Threat Modeling
-Given Docker's system components and the STRIDE framework, identify five potential threats that may arise.
-- A fork bomb (multiple forks of a single image) could be used to create a denial of service attack.
-- A vulnerability in a container could be exploited to gain unauthorized access to the host system.
-- Container image permissions may be elevated using the --privilege flag. Image libraries may contain security flaws. This can affect image security. This can be used to elevate privileges on the host system.
-- Sensitive data such as secrets may be left in the container image and exposed at runtime affecting image security and potentially much more, depending on the scope of the credentials. This would affect image security. This can be used for an information disclosure attack.
-- Host devices exposed to containers (such as USB devices) could be used to create a denial of service attack. 
+Step 1:
+Document 5 concrete attack surface areas for the Docker environment and 5 concrete attack surface 
+areas for the Kubernetes control plane, etcd, and worker.
 
-Kubernetes Threat Modeling
-Given Kubernetes' system components and the STRIDE framework, identify five potential threats that may arise.
-- A vulnerability in Kubelet could be exploited to gain unauthorized access to the host system.
-- A vulnerability in the Kube-ApiServer could be exploited for a spoofing attack.
-- A vulnerability in the etcd could be exploited for an information disclosure attack.
-- A vulnerability in the Kube-Scheduler could be exploited for a denial of service attack.
-- A vulnerability in the Kube-Proxy could be exploited for an information disclosure attack.
+Docker:
+(1) Docker Host:
+Information Disclosure - The Docker host file system may be misconfigured, exposing sensitive 
+information and leading to insecure defaults.
+
+Spoofing - This can occur when a sidecar container has intentional access to the primary 
+container's namespace and may spoof the namespace used by the primary container, 
+resulting in isolation tampering. You should be careful with using sidecar containers.
+
+
+(2) Docker Client
+Client compromise: the Docker desktop running on the administrator's machine
+Client authorization abuse: abuse of the client's authorization to make privileged changes
+
+Spoofing - Client traffic from the Docker client to the Docker daemon or registry could be spoofed,
+ or intercepted by a malicious party and replayed. Transport Layer Security (TLS) can be 
+ implemented to secure communication affecting the client.
+
+(3) Docker Daemon
+Tampering - Daemon configuration may be tampered with by a compromised client, leading to 
+misconfiguration.
+
+Denial of Service - Daemon memory for the running container may be over-allocated, leading 
+to a misconfiguration.
+
+(4) Container Images And Build File
+Elevation of Privilege - when a Dockerfile does not specify a user, it defaults to executing the 
+container using the root user, affecting client authorization and the Dockerfile.
+
+(5) Docker Registry:
+Tampering - Container image may be tampered with, leading to supply chain injections. 
+This is the biggest risk regarding the supply chain. An attacker may implant a malicious 
+image into the image registry and entice organizations to use it. Alternatively, an attacker 
+may introduce open source libraries in popular hosted repositories and encourage organizations 
+to use them. This can affect both image security and Open Source Software security.
+
+Kubernetes:
+
+(1) kube-apiserver: 
+This is the primary control plane that exposes the Kubernetes API. The API server is the 
+front end for the Kubernetes control plane.
+
+Elevation of Privilege - privilege can be abused by using the privileged flag. 
+This should be avoided in all cases. This affects kube-apiserver.
+
+Spoofing - Calls to the API server could be spoofed by a malicious caller. 
+This can be mitigated by ensuring all calls to the API server are over TLS, 
+ensuring that anonymous and basic authentication is not used.
+
+(2) etcd:
+etcd is a consistent and highly-available key-value store used as Kubernetes' 
+backing store for all cluster data.
+
+Tampering - The configuration of etcd may be tampered with by an attacker, 
+modifying vital system-level configurations such as pod specs. This can be mitigated 
+by restricting permissions on etcd files to 644 or more restrictive and that the pod 
+spec file is set to root ownership.
+
+(3) kube-scheduler:
+kube-scheduler is a control plane component that watches for newly created 
+Pods with no assigned node and selects a node for them to run on.
+
+Denial of Service - excessive traffic to the API server can overwhelm the endpoint. 
+kube-scheduler can incorrectly schedule the pod.
+
+(4) kubelet:
+kubelet is an agent that runs on each node in the cluster. It makes sure that 
+containers are running in a Pod.
+
+Tampering - The kubelet configuration can be tampered with. Specifically,
+ the kubelet.conf worker configuration file can be tampered with. Make sure 
+ to set the permission to 644 or more restrictive.
+
+ Elevation of Privilege - Kubelet can be subject to an elevation of privilege. 
+ To ensure privileges cannot be escalated, make sure the authorization mode 
+ argument is not set to always allow.
+
+
+(5) kube-proxy
+kube-proxy is a network proxy that runs on each node in your cluster, maintaining
+network rules on nodes. These network rules allow network communication to your Pods 
+from network sessions inside or outside of your cluster.
+
+Information Disclosure - Kube-proxy can expose sensitive information. 
+To ensure the kube-proxy does not expose information, the --kubeconfig 
+should be set to permissions 644 or less permissive.
 
 
 Step 2:
@@ -21,7 +96,7 @@ you want to harden. These 3 findings should confirm 3 out of the 5 attack surfac
 identified for Docker in Step 1. At least 1 of the 3 findings should be different from the ones 
 mentioned in the exercise (i.e. 5.10, 5.14, and 5.22).
 
-(1)[FAIL] 5.10 Ensure that the memory usage for container is limited (Automated)
+(1) [FAIL] 5.10 Ensure that the memory usage for container is limited (Automated)
 
 According to the CIS Docker Benchmark (provided courtesy of the Center for Internet Security),
 
@@ -35,32 +110,28 @@ other containers on the same host are therefore not able to function). Having no
 usage can lead to issues where one container can easily make the whole system unstable and as a 
 result unusable. 
 
-(2) [FAIL] 5.11 Ensure that CPU priority is set appropriately on containers (Automated)
+(2) [FAIL] 3.17 Ensure that the daemon.json file ownership is set to root:root (Automated)
 
 According to the CIS Docker Benchmark (provided courtesy of the Center for Internet Security),
 
-By default, all containers on a Docker host share resources equally. By using the resource
-management capabilities of the Docker host you can control the host CPU resources that a
-container may consume.
+You should verify that the daemon.json file individual ownership and group ownership is
+correctly set to root .
 
-By default, CPU time is divided between containers equally. If you wish to control available
-CPU resources amongst container instances, you can use the CPU sharing feature. CPU
-sharing allows you to prioritize one container over others and prevents lower priority
-containers from absorbing CPU resources which may be required by other processes. This
-ensures that high priority containers are able to claim the CPU runtime they require.
+The daemon.json file contains sensitive parameters that could alter the behavior of the
+docker daemon. It should therefore be owned and group owned by root to ensure it can
+not be modified by less privileged users.
 
 
-(3) [FAIL] 5.28 Ensure that the PIDs cgroup limit is used (Automated)
+(3) [FAIL] 4.5 Ensure Content trust for Docker is Enabled (Automated)
 
 According to the CIS Docker Benchmark (provided courtesy of the Center for Internet Security),
 
-You should use the --pids-limit flag at container runtime.
+Content trust is disabled by default and should be enabled in line with organizational
+security policy.
 
-Attackers could launch a fork bomb with a single command inside the container. This fork
-bomb could crash the entire system and would require a restart of the host to make the
-system functional again. Using the PIDs cgroup parameter --pids-limit would prevent
-this kind of attack by restricting the number of forks that can happen inside a container
-within a specified time frame.
-
+Content trust provides the ability to use digital signatures for data sent to and received
+from remote Docker registries. These signatures allow client-side verification of the
+identity and the publisher of specific image tags and ensures the provenance of container
+images.
 
 

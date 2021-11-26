@@ -1,7 +1,6 @@
-To harden a Kubernetes cluster changes should not be applied to the production environment directly.
-There should be a test environment that is used for testing changes before applying them to the production environment.
-When these changes have been applied to the test environment, they should be tested extensively to ensure they do not break the environment.
-Once the changes have been tested, they should not be rolled out immediately to the production environment.
-Instead a Canary deployment should be created and deployed to the production environment.
-This can be done by creating a new deployment with the new changes and then rolling out the canary deployment.
-Once the canary deployment is rolled out, the canary deployment should be promoted to the production environment if no issues are found.
+. How will you test the changes? The changes will be tested in a non-production environment such as a test cluster.
+. How will you ensure the changes don't negatively affect your cluster? The changes should be tested in a non-production   cluster. Once the change is applied, we should monitor metrics using our observability and monitoring techniques like  	Prometheus and Grafana.
+. Can the change be canary tested with some traffic directed to simulate load on the system? It's not possible to simulate directing traffic easily to a non-production cluster.
+. What is the environment? The environment is a non-production cluster.
+. Does the environment mimic production? If not how can we mimic production? Our environment mimics production as it's a verbatim configuration.
+. Can the change be safely rolled back? Editing the cluster.yaml should be version-controlled with Git so the change can be rolled back. However, as a reboot is required, it's not trivial to do quickly. 
